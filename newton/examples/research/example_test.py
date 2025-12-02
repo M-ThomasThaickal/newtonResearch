@@ -68,7 +68,7 @@ class Example:
 
         # finalize model and solver
         self.model = builder.finalize()
-        self.solver = newton.solvers.NewSolverXPBD(self.model, iterations=12)
+        self.solver = newton.solvers.SolverXPBD(self.model, iterations=12)
 
         self.state_0 = self.model.state()
         self.state_1 = self.model.state()

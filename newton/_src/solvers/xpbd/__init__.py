@@ -14,7 +14,8 @@
 # limitations under the License.
 
 from .solver_xpbd import SolverXPBD
+from .new_solver_xpbd import NewSolverXPBD
 
 __all__ = [
-    "SolverXPBD",
+    "SolverXPBD", "NewSolverXPBD"
 ]

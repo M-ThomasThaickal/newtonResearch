@@ -189,6 +189,31 @@ class Example:
 
         self.capture()
 
+    # def print_rigid_body_forces(self):
+    #     if self.contacts.contact_count == 0:
+    #         return
+        
+    #     # Copy contact data to CPU
+    #     contact_body0 = self.contacts.contact_body0.numpy()
+    #     contact_body1 = self.contacts.contact_body1.numpy()
+    #     contact_point = self.contacts.contact_point.numpy()
+    #     contact_normal = self.contacts.contact_normal.numpy()
+        
+    #     # contact_lambda might not be directly accessible, but we can estimate forces
+    #     # from the velocity changes
+        
+    #     print(f"Contacts: {self.contacts.contact_count}")
+    #     for i in range(min(10, self.contacts.contact_count)):
+    #         b0 = contact_body0[i]
+    #         b1 = contact_body1[i]
+    #         normal = contact_normal[i]
+    #         point = contact_point[i]
+            
+    #         if b1 == -1:
+    #             print(f"  Body {b0} ↔ Ground at {point}, normal={normal}")
+    #         else:
+    #             print(f"  Body {b0} ↔ Body {b1} at {point}, normal={normal}")
+
     def capture(self):
         if wp.get_device().is_cuda:
             with wp.ScopedCapture() as capture:
@@ -270,6 +295,22 @@ class Example:
             self.simulate()
 
         self.sim_time += self.frame_dt
+
+    
+        if int(self.sim_time / self.frame_dt) % 10 == 0:
+            forces_cpu = self.body_sand_forces.numpy()
+
+            total_force = wp.vec3(0.0, 0.0, 0.0)
+            for i in range(forces_cpu.shape[0]):
+                # Extract linear force component (first 3 elements of spatial vector)
+                linear_force = forces_cpu[i][:3]  # [fx, fy, fz]
+                total_force = total_force + wp.vec3(linear_force)
+        
+            print(f"Frame {self.sim_time:.3f}s - Total sand reaction force: {total_force}")
+            # print (f"Frame {self.sim_time:.3f}s - Total rigid body reaction force: {total_force}")
+
+            # print_rigid_body_forces(self)
+
 
     def test(self):
         newton.examples.test_body_state(
