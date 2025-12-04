@@ -1,7 +1,11 @@
-from .solver_xpbd import SolverXPBD
-from ...core.types import override
-from ...sim import Contacts, Control, State
+# from newton.solvers import SolverXPBD
+# from newton._src.core.types import override
+# from newton._src.sim import Contacts, Control, State
+import warp as wp
 
+from ...core.types import override
+from ...sim import Contacts, Control, Model, State
+from .solver_xpbd import SolverXPBD
 from .kernels import (
     apply_body_delta_velocities,
     apply_body_deltas,
@@ -27,6 +31,17 @@ from .kernels import (
 # add that as an output.
 
 class NewSolverXPBD(SolverXPBD):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.last_spring_lambdas = None
+        self.last_edge_lambdas = None
+
+        self.last_contact_count = None
+        self.last_contact_normals = None
+        self.last_contact_shapes = None
+        self.last_contact_forces = None
+
 
     @override
     def step(self, state_in: State, state_out: State, control: Control, contacts: Contacts, dt: float):
@@ -196,8 +211,8 @@ class NewSolverXPBD(SolverXPBD):
                                 outputs=[particle_deltas],
                                 device=model.device,
                             )
-                            lam = spring_constraint_lambdas.numpy()
-                            print(lam[:10])
+                            if i == self.iterations - 1:
+                                self.last_spring_lambdas = spring_constraint_lambdas
 
                         # bending constraints
                         if model.edge_count:
@@ -218,8 +233,8 @@ class NewSolverXPBD(SolverXPBD):
                                 outputs=[particle_deltas],
                                 device=model.device,
                             )
-                            lam = edge_constraint_lambdas.numpy()
-                            print(lam[:10])
+                            if i == self.iterations - 1:
+                                self.last_edge_lambdas = edge_constraint_lambdas
 
                         # tetrahedral FEM
                         if model.tet_count:
@@ -358,6 +373,11 @@ class NewSolverXPBD(SolverXPBD):
                             device=model.device,
                         )
 
+                        if i == self.iterations - 1:
+                            self.last_contact_count = contacts.rigid_contact_count
+                            self.last_contact_normals = contacts.rigid_contact_normal
+                            self.last_contact_shapes = (contacts.rigid_contact_shape0, contacts.rigid_contact_shape1)
+                            self.last_contact_forces = body_deltas 
                         # if model.rigid_contact_count.numpy()[0] > 0:
                         #     print("rigid_contact_count:", model.rigid_contact_count.numpy().flatten())
                         #     # print("rigid_active_contact_distance:", rigid_active_contact_distance.numpy().flatten())
