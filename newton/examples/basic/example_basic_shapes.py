@@ -24,6 +24,7 @@
 ###########################################################################
 
 import warp as wp
+from collections import defaultdict
 import numpy as np
 from pxr import Usd
 
@@ -217,7 +218,7 @@ class Example:
             shape1 = self.solver.last_contact_shapes[1].numpy()
             forces = self.solver.last_contact_forces.numpy()
 
-            from collections import defaultdict
+
             body_pair_contacts = defaultdict(int)
             body_pair_forces = defaultdict(list)
             
@@ -247,19 +248,35 @@ class Example:
                 pair = tuple(sorted([body0, body1]))
                 body_pair_contacts[pair] += 1
 
-                forces - forces[body0] if body0 >= 0 else forces[body1]
-                body_pair_forces[pair].append(forces[:3])
+                if body0 >= 0 and body1 >= 0:
+                # Both are dynamic bodies - use body0's force
+                    force = forces[body0][:3]
+                elif body0 >= 0:
+                    # body0 is dynamic, body1 is ground
+                    force = forces[body0][:3]
+                elif body1 >= 0:
+                    # body1 is dynamic, body0 is ground
+                    force = forces[body1][:3]
+                else:
+                    # Both are ground (shouldn't happen)
+                    force = np.array([0., 0., 0.])
+            
+                body_pair_forces[pair].append(force)
+
             print("\nContacts by body pair:")
             for pair, count in sorted(body_pair_contacts.items()):
                 body0_name = self.body_names.get(pair[0], f"Body_{pair[0]}") if pair[0] >= 0 else "Ground"
                 body1_name = self.body_names.get(pair[1], f"Body_{pair[1]}") if pair[1] >= 0 else "Ground"
                 
-                # Average force across all contact points
-                avg_force = np.mean(body_pair_forces[pair], axis=0)
-                avg_force = np.round(avg_force, 3)
-
-                print(f"  {body0_name} <-> {body1_name}: {count} contact points, avg force: {avg_force}")
-
+                # ✅ Convert list to array, then average
+                forces_array = np.array(body_pair_forces[pair])  # Shape: (num_contacts, 3)
+                avg_force = np.mean(forces_array, axis=0)  # Shape: (3,)
+                total_force_magnitude = np.linalg.norm(avg_force)
+                
+                print(f"  {body0_name} <-> {body1_name}: {count} points | "
+                    f"Avg force: [{avg_force[0]:7.3f}, {avg_force[1]:7.3f}, {avg_force[2]:7.3f}] | "
+                    f"Magnitude: {total_force_magnitude:6.3f} N")
+                
     def test(self):
         self.sphere_pos[2] = 0.5
         sphere_q = wp.transform(self.sphere_pos, wp.quat_identity())
