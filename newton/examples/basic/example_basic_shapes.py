@@ -24,6 +24,7 @@
 ###########################################################################
 
 import warp as wp
+import numpy as np
 from pxr import Usd
 
 import newton
@@ -56,25 +57,25 @@ class Example:
         self.body_refs = {}
 
         # SPHERE
-        self.sphere_pos = wp.vec3(0.0, 0.0, drop_z)
+        self.sphere_pos = wp.vec3(0.0, 2.0, drop_z)
         body_sphere = builder.add_body(xform=wp.transform(p=self.sphere_pos, q=wp.quat_identity()), key="sphere")
         builder.add_shape_sphere(body_sphere, radius=0.5)
         self.body_refs["sphere"] = body_sphere
 
         # CAPSULE
-        self.capsule_pos = wp.vec3(0.0, 0.0, drop_z+2)
+        self.capsule_pos = wp.vec3(0.0, 6.0, drop_z+2)
         body_capsule = builder.add_body(xform=wp.transform(p=self.capsule_pos, q=wp.quat_identity()), key="capsule")
         builder.add_shape_capsule(body_capsule, radius=0.3, half_height=0.7)
         self.body_refs["capsule"] = body_capsule
 
         # CYLINDER
-        self.cylinder_pos = wp.vec3(0.0, 0.0, drop_z+4)
+        self.cylinder_pos = wp.vec3(0.0, 4.0, drop_z+4)
         body_cylinder = builder.add_body(xform=wp.transform(p=self.cylinder_pos, q=wp.quat_identity()), key="cylinder")
         builder.add_shape_cylinder(body_cylinder, radius=0.4, half_height=0.6)
         self.body_refs["cylinder"] = body_cylinder
 
         # BOX
-        self.box_pos = wp.vec3(0.0, 0.0, drop_z+6)
+        self.box_pos = wp.vec3(0.0, 6.0, drop_z+6)
         body_box = builder.add_body(xform=wp.transform(p=self.box_pos, q=wp.quat_identity()), key="box")
         builder.add_shape_box(body_box, hx=0.5, hy=0.35, hz=0.25)
         self.body_refs["box"] = body_box
@@ -83,14 +84,14 @@ class Example:
         usd_stage = Usd.Stage.Open(newton.examples.get_asset("bunny.usd"))
         demo_mesh = newton.usd.get_mesh(usd_stage.GetPrimAtPath("/root/bunny"))
 
-        self.mesh_pos = wp.vec3(0.0, 0.0, drop_z + 8)
+        self.mesh_pos = wp.vec3(0.0, 8.0, drop_z + 8)
         body_mesh = builder.add_body(xform=wp.transform(p=self.mesh_pos, q=wp.quat(0.5, 0.5, 0.5, 0.5)), key="mesh")
         builder.add_shape_mesh(body_mesh, mesh=demo_mesh)
         self.body_refs["mesh"] = body_mesh
 
 
         # CONE (no collision support in the standard collision pipeline)
-        self.cone_pos = wp.vec3(0.0, 0.0, drop_z+10)
+        self.cone_pos = wp.vec3(0.0, 10.0, drop_z+10)
         body_cone = builder.add_body(xform=wp.transform(p=self.cone_pos, q=wp.quat_identity()), key="cone")
         builder.add_shape_cone(body_cone, radius=0.45, half_height=0.6)
         self.body_refs["cone"] = body_cone
@@ -211,14 +212,18 @@ class Example:
             print(f"Active contacts: {contact_count}")
             
             # Get contact information
-            normals = self.solver.last_contact_normals.numpy()
+            # normals = self.solver.last_contact_normals.numpy()
             shape0 = self.solver.last_contact_shapes[0].numpy()
             shape1 = self.solver.last_contact_shapes[1].numpy()
             forces = self.solver.last_contact_forces.numpy()
+
+            from collections import defaultdict
+            body_pair_contacts = defaultdict(int)
+            body_pair_forces = defaultdict(list)
             
             # Analyze each contact
-            for c in range(min(contact_count, 5)):  # Show first 5 contacts
-                normal = normals[c]
+            for c in range(contact_count):  # Show first 5 contacts
+                # normal = normals[c]
                 s0 = shape0[c]
                 s1 = shape1[c]
                 
@@ -226,19 +231,34 @@ class Example:
                 body0 = self.model.shape_body.numpy()[s0]
                 body1 = self.model.shape_body.numpy()[s1]
 
-                body0_name = self.body_names.get(body0, f"Body_{body0}") if body0 >= 0 else "Ground"
-                body1_name = self.body_names.get(body1, f"Body_{body1}") if body1 >= 0 else "Ground"
+                # body0_name = self.body_names.get(body0, f"Body_{body0}") if body0 >= 0 else "Ground"
+                # body1_name = self.body_names.get(body1, f"Body_{body1}") if body1 >= 0 else "Ground"
                 
-                # Calculate force magnitude from body_deltas
-                # body_deltas contains velocity changes, convert to force
-                force_body0 = forces[body0] if body0 >= 0 else [0,0,0,0,0,0]
-                force_body1 = forces[body1] if body1 >= 0 else [0,0,0,0,0,0]
+                # # Calculate force magnitude from body_deltas
+                # # body_deltas contains velocity changes, convert to force
+                # force_body0 = forces[body0] if body0 >= 0 else [0,0,0,0,0,0]
+                # force_body1 = forces[body1] if body1 >= 0 else [0,0,0,0,0,0]
                 
-                print(f"Contact {c}:")
-                print(f"  {body0_name} {body0} <-> {body1_name} {body1}")
-                print(f"  Normal: {normal}")
-                print(f"  Force on body {body0_name}: {force_body0[:3]}")  # Linear component
-                print(f"  Force on body {body1_name}: {force_body1[:3]}")
+                # print(f"Contact {c}:")
+                # print(f"  {body0_name} {body0} <-> {body1_name} {body1}")
+                # print(f"  Normal: {normal}")
+                # print(f"  Force on body {body0_name}: {force_body0[:3]}")  # Linear component
+                # print(f"  Force on body {body1_name}: {force_body1[:3]}")
+                pair = tuple(sorted([body0, body1]))
+                body_pair_contacts[pair] += 1
+
+                forces - forces[body0] if body0 >= 0 else forces[body1]
+                body_pair_forces[pair].append(forces[:3])
+            print("\nContacts by body pair:")
+            for pair, count in sorted(body_pair_contacts.items()):
+                body0_name = self.body_names.get(pair[0], f"Body_{pair[0]}") if pair[0] >= 0 else "Ground"
+                body1_name = self.body_names.get(pair[1], f"Body_{pair[1]}") if pair[1] >= 0 else "Ground"
+                
+                # Average force across all contact points
+                avg_force = np.mean(body_pair_forces[pair], axis=0)
+                avg_force = np.round(avg_force, 3)
+
+                print(f"  {body0_name} <-> {body1_name}: {count} contact points, avg force: {avg_force}")
 
     def test(self):
         self.sphere_pos[2] = 0.5
